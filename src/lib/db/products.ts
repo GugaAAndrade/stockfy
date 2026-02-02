@@ -1,38 +1,44 @@
-import { prisma } from "@/lib/db/prisma";
+import type { DbClient } from "@/lib/db/tenant";
 import { Prisma } from "@prisma/client";
 
-export function listProducts(search?: string) {
-  return prisma.product.findMany({
-    where: search
-      ? {
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { category: { name: { contains: search, mode: "insensitive" } } },
-            { variants: { some: { sku: { contains: search, mode: "insensitive" } } } },
-          ],
-        }
-      : undefined,
+export function listProducts(client: DbClient, tenantId: string, search?: string) {
+  return client.product.findMany({
+    where: {
+      tenantId,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { category: { name: { contains: search, mode: "insensitive" } } },
+              { variants: { some: { sku: { contains: search, mode: "insensitive" } } } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: "desc" },
     include: { category: true, variants: true },
   });
 }
 
-export function getProductById(id: string) {
-  return prisma.product.findUnique({ where: { id }, include: { category: true, variants: true } });
+export function getProductById(client: DbClient, tenantId: string, id: string) {
+  return client.product.findFirst({
+    where: { id, tenantId },
+    include: { category: true, variants: true },
+  });
 }
 
-export function createProduct(data: Prisma.ProductCreateInput) {
-  return prisma.product.create({ data });
+export function createProduct(client: DbClient, data: Prisma.ProductCreateInput) {
+  return client.product.create({ data });
 }
 
-export function updateProduct(id: string, data: Prisma.ProductUpdateInput) {
-  return prisma.product.update({
+export function updateProduct(client: DbClient, id: string, data: Prisma.ProductUpdateInput) {
+  return client.product.update({
     where: { id },
     data,
     include: { category: true, variants: true },
   });
 }
 
-export function deleteProduct(id: string) {
-  return prisma.product.delete({ where: { id } });
+export function deleteProduct(client: DbClient, id: string) {
+  return client.product.delete({ where: { id } });
 }

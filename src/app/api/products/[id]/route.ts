@@ -1,13 +1,17 @@
 import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { productUpdateSchema } from "@/lib/validators/product";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionContext } from "@/lib/auth/session";
 import * as notificationService from "@/lib/services/notifications";
 import * as productService from "@/lib/services/products";
 
 export async function GET(_request: NextRequest, context: { params: { id: string } }) {
   const { id } = await context.params;
-  const product = await productService.getProductById({}, id);
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+  const product = await productService.getProductById({ tenantId: session?.tenantId }, id);
   if (!product) {
     return fail({ code: "NOT_FOUND", message: "Produto não encontrado" }, 404);
   }
@@ -27,7 +31,10 @@ export async function GET(_request: NextRequest, context: { params: { id: string
 
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
   const { id } = await context.params;
-  const user = await getSessionUser();
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   const body = await request.json().catch(() => null);
   const parsed = productUpdateSchema.safeParse(body);
 
@@ -42,7 +49,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
     );
   }
 
-  const updated = await productService.updateProduct({}, id, parsed.data);
+  const updated = await productService.updateProduct({ tenantId: session?.tenantId }, id, parsed.data);
   if (!updated) {
     return fail({ code: "NOT_FOUND", message: "Produto não encontrado" }, 404);
   }
@@ -50,7 +57,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   const totalMin = updated.variants?.reduce?.((sum, variant) => sum + variant.minStock, 0) ?? 0;
   const defaultVariant = updated.variants?.find?.((variant) => variant.isDefault) ?? updated.variants?.[0];
   await notificationService.createNotification(
-    { userId: user?.id },
+    { userId: session?.user.id, tenantId: session?.tenantId },
     "Produto atualizado",
     `Produto ${updated.name} atualizado`
   );
@@ -67,11 +74,14 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
 
 export async function DELETE(_request: NextRequest, context: { params: { id: string } }) {
   const { id } = await context.params;
-  const user = await getSessionUser();
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   try {
-    const deleted = await productService.deleteProduct({}, id);
+    const deleted = await productService.deleteProduct({ tenantId: session?.tenantId }, id);
     await notificationService.createNotification(
-      { userId: user?.id },
+      { userId: session?.user.id, tenantId: session?.tenantId },
       "Produto excluído",
       `Produto removido do estoque`
     );

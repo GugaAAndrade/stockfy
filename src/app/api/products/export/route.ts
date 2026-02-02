@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { getSessionContext } from "@/lib/auth/session";
+import { withTenant } from "@/lib/db/tenant";
 
 export async function GET() {
-  const products = await prisma.product.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { category: true, variants: true },
-  });
+  const session = await getSessionContext();
+  if (!session) {
+    return new NextResponse("Não autenticado", { status: 401 });
+  }
+
+  const products = await withTenant(session.tenantId, (tx) =>
+    tx.product.findMany({
+      where: { tenantId: session.tenantId },
+      orderBy: { createdAt: "desc" },
+      include: { category: true, variants: true },
+    })
+  );
 
   const header = ["name", "sku", "category", "unitPrice", "stock", "minStock", "description"].join(",");
   const rows = products.map((product) => {

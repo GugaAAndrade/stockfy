@@ -2,14 +2,23 @@ import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { variantCreateSchema } from "@/lib/validators/variant";
 import * as variantService from "@/lib/services/variants";
+import { getSessionContext } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   const productId = request.nextUrl.searchParams.get("productId") ?? undefined;
-  const data = await variantService.listVariants(productId);
+  const data = await variantService.listVariants({ tenantId: session?.tenantId }, productId);
   return ok(data);
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   const body = await request.json().catch(() => null);
   const parsed = variantCreateSchema.safeParse(body);
 
@@ -21,7 +30,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const created = await variantService.createVariant(parsed.data);
+    const created = await variantService.createVariant({ tenantId: session?.tenantId }, parsed.data);
     if (!created) {
       return fail({ code: "NOT_FOUND", message: "Produto não encontrado" }, 404);
     }

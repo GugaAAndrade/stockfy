@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { categoryCreateSchema } from "@/lib/validators/category";
-import { prisma } from "@/lib/db/prisma";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionContext } from "@/lib/auth/session";
 import * as notificationService from "@/lib/services/notifications";
+import { withTenant } from "@/lib/db/tenant";
 
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
   const { id } = await context.params;
-  const user = await getSessionUser();
+  const session = await getSessionContext();
   const body = await request.json().catch(() => null);
   const parsed = categoryCreateSchema.safeParse(body);
 
@@ -18,13 +18,19 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
     );
   }
 
-  const updated = await prisma.category.update({
-    where: { id },
-    data: { name: parsed.data.name },
-  });
+  if (!session?.tenantId) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+
+  const updated = await withTenant(session.tenantId, (tx) =>
+    tx.category.update({
+      where: { id },
+      data: { name: parsed.data.name },
+    })
+  );
 
   await notificationService.createNotification(
-    { userId: user?.id },
+    { userId: session?.user.id, tenantId: session?.tenantId },
     "Categoria atualizada",
     `Categoria renomeada para ${updated.name}`
   );
@@ -33,9 +39,15 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
 
 export async function DELETE(_request: NextRequest, context: { params: { id: string } }) {
   const { id } = await context.params;
-  const user = await getSessionUser();
+  const session = await getSessionContext();
 
-  const count = await prisma.product.count({ where: { categoryId: id } });
+  if (!session?.tenantId) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+
+  const count = await withTenant(session.tenantId, (tx) =>
+    tx.product.count({ where: { categoryId: id, tenantId: session.tenantId } })
+  );
   if (count > 0) {
     return fail(
       { code: "CATEGORY_IN_USE", message: "Categoria possui produtos vinculados" },
@@ -43,9 +55,9 @@ export async function DELETE(_request: NextRequest, context: { params: { id: str
     );
   }
 
-  const deleted = await prisma.category.delete({ where: { id } });
+  const deleted = await withTenant(session.tenantId, (tx) => tx.category.delete({ where: { id } }));
   await notificationService.createNotification(
-    { userId: user?.id },
+    { userId: session?.user.id, tenantId: session?.tenantId },
     "Categoria excluída",
     "Categoria removida do sistema"
   );

@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { ProductTable, ProductRow } from "@/components/dashboard/product-table";
@@ -45,6 +45,9 @@ const emptyForm = {
 const emptyCategory = { name: "" };
 
 export default function ProductsPage() {
+  const params = useParams();
+  const companySlug = typeof params.companySlug === "string" ? params.companySlug : "";
+  const basePath = companySlug ? `/app/${companySlug}` : "/app";
   const searchParams = useSearchParams();
   const search = searchParams.get("search") ?? "";
   const shouldOpenNew = searchParams.get("new") === "1";
@@ -517,7 +520,7 @@ export default function ProductsPage() {
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-semibold text-foreground">Variações (SKUs)</h4>
                   <a
-                    href={`/variacoes?productId=${editing.id}`}
+                    href={`${basePath}/variacoes?productId=${editing.id}`}
                     className="text-xs text-primary hover:underline"
                   >
                     Gerenciar SKUs

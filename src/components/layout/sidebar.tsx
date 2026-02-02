@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 
 interface NavItem {
   icon: React.ElementType;
@@ -20,18 +20,21 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Package, label: "Produtos", href: "/produtos" },
-  { icon: TrendingUp, label: "Movimentações", href: "/movimentacoes" },
-  { icon: Package, label: "Variações", href: "/variacoes" },
-  { icon: BarChart3, label: "Relatórios", href: "/relatorios" },
-  { icon: Users, label: "Fornecedores", href: "/fornecedores" },
-  { icon: FileText, label: "Documentos", href: "/documentos" },
-  { icon: Settings, label: "Configurações", href: "/configuracoes" },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/app" },
+  { icon: Package, label: "Produtos", href: "/app/produtos" },
+  { icon: TrendingUp, label: "Movimentações", href: "/app/movimentacoes" },
+  { icon: Package, label: "Variações", href: "/app/variacoes" },
+  { icon: BarChart3, label: "Relatórios", href: "/app/relatorios" },
+  { icon: Users, label: "Fornecedores", href: "/app/fornecedores" },
+  { icon: FileText, label: "Documentos", href: "/app/documentos" },
+  { icon: Settings, label: "Configurações", href: "/app/configuracoes" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const params = useParams();
+  const companySlug = typeof params.companySlug === "string" ? params.companySlug : "";
+  const basePath = companySlug ? `/app/${companySlug}` : "/app";
 
   return (
     <motion.aside
@@ -49,10 +52,11 @@ export function Sidebar() {
       <nav className="flex-1 flex flex-col gap-2 w-full px-3">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const href = item.href.replace("/app", basePath);
+          const isActive = pathname === href;
 
           return (
-            <Link key={item.label} href={item.href} className="relative group">
+            <Link key={item.label} href={href} className="relative group">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <div
                   className={`

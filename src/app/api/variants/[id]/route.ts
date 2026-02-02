@@ -2,8 +2,13 @@ import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { variantUpdateSchema } from "@/lib/validators/variant";
 import * as variantService from "@/lib/services/variants";
+import { getSessionContext } from "@/lib/auth/session";
 
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   const parsed = variantUpdateSchema.safeParse(body);
@@ -16,7 +21,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   }
 
   try {
-    const updated = await variantService.updateVariant(id, parsed.data);
+    const updated = await variantService.updateVariant({ tenantId: session?.tenantId }, id, parsed.data);
     if (!updated) {
       return fail({ code: "NOT_FOUND", message: "SKU não encontrado" }, 404);
     }
@@ -33,9 +38,13 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
 }
 
 export async function DELETE(_request: NextRequest, context: { params: { id: string } }) {
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   const { id } = await context.params;
   try {
-    const deleted = await variantService.deleteVariant(id);
+    const deleted = await variantService.deleteVariant({ tenantId: session?.tenantId }, id);
     return ok({ id: deleted.id });
   } catch {
     return fail({ code: "INTERNAL_ERROR", message: "Erro ao excluir SKU" }, 500);

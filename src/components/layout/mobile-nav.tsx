@@ -3,17 +3,20 @@
 import { LayoutDashboard, Package, TrendingUp, Settings } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Package, label: "Produtos", href: "/produtos" },
-  { icon: TrendingUp, label: "Movimentações", href: "/movimentacoes" },
-  { icon: Settings, label: "Configurações", href: "/configuracoes" },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/app" },
+  { icon: Package, label: "Produtos", href: "/app/produtos" },
+  { icon: TrendingUp, label: "Movimentações", href: "/app/movimentacoes" },
+  { icon: Settings, label: "Configurações", href: "/app/configuracoes" },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
+  const params = useParams();
+  const companySlug = typeof params.companySlug === "string" ? params.companySlug : "";
+  const basePath = companySlug ? `/app/${companySlug}` : "/app";
 
   return (
     <motion.nav
@@ -24,10 +27,11 @@ export function MobileNav() {
       <div className="flex items-center justify-around h-16 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const href = item.href.replace("/app", basePath);
+          const isActive = pathname === href;
 
           return (
-            <Link key={item.label} href={item.href} className="relative flex flex-col items-center justify-center flex-1 h-full">
+            <Link key={item.label} href={href} className="relative flex flex-col items-center justify-center flex-1 h-full">
               <motion.div whileTap={{ scale: 0.9 }}>
                 <div
                   className={`flex flex-col items-center justify-center transition-all duration-200 ${

@@ -9,14 +9,21 @@ datasource db {
 
 model Category {
   id        String    @id @default(cuid())
-  name      String    @unique
+  tenantId  String
+  name      String
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   products  Product[]
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId, name])
 }
 
 model Product {
   id          String          @id @default(cuid())
+  tenantId    String
   name        String
   description String?
   categoryId  String
@@ -26,12 +33,17 @@ model Product {
   variants    ProductVariant[]
 
   category Category @relation(fields: [categoryId], references: [id])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, categoryId])
+  @@index([tenantId, createdAt])
 }
 
 model ProductVariant {
   id         String   @id @default(cuid())
+  tenantId   String
   productId  String
-  sku        String   @unique
+  sku        String
   attributes Json
   stock      Int
   minStock   Int
@@ -40,11 +52,16 @@ model ProductVariant {
   updatedAt  DateTime @updatedAt
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   movements StockMovement[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, productId])
 }
 
 model StockMovement {
   id        String       @id @default(cuid())
+  tenantId  String
   variantId String
   type      MovementType
   quantity  Int
@@ -52,6 +69,10 @@ model StockMovement {
   createdAt DateTime     @default(now())
 
   variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, variantId])
 }
 
 enum MovementType {
@@ -65,30 +86,41 @@ enum Role {
   OPERATOR
 }
 
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  INVITED
+}
+
 model User {
   id        String     @id @default(cuid())
   name      String
   email     String     @unique
   password  String
-  role      Role       @default(OPERATOR)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   sessions  Session[]
   notices   Notification[]
+  memberships TenantUser[]
 }
 
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String
+  tenantId  String
   createdAt DateTime @default(now())
   expiresAt DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
 }
 
 model Notification {
   id        String   @id @default(cuid())
+  tenantId  String
   userId    String
   title     String
   message   String
@@ -96,4 +128,45 @@ model Notification {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, readAt])
+  @@index([tenantId, createdAt])
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  stripeCustomerId    String?  @unique
+  stripeSubscriptionId String? @unique
+  subscriptionStatus  String?  
+  priceId             String?
+  currentPeriodEnd    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         TenantUser[]
+  categories    Category[]
+  products      Product[]
+  variants      ProductVariant[]
+  movements     StockMovement[]
+  notifications Notification[]
+  sessions      Session[]
+}
+
+model TenantUser {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      Role     @default(ADMIN)
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
 }

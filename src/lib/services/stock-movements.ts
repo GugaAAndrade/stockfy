@@ -1,34 +1,43 @@
 import * as movementDb from "@/lib/db/stock-movements";
 import type { MovementCreateInput } from "@/lib/validators/stock-movement";
 import type { ServiceContext } from "@/lib/services/products";
-import { prisma } from "@/lib/db/prisma";
+import { withTenant } from "@/lib/db/tenant";
 
 export async function listMovements(ctx: ServiceContext) {
-  void ctx;
-  return movementDb.listMovements();
+  if (!ctx.tenantId) {
+    return [];
+  }
+  return withTenant(ctx.tenantId, (tx) => movementDb.listMovements(tx, ctx.tenantId!));
 }
 
 export async function createMovement(ctx: ServiceContext, input: MovementCreateInput) {
-  void ctx;
-  const variant = await prisma.productVariant.findUnique({ where: { id: input.variantId } });
-  if (!variant) {
+  if (!ctx.tenantId) {
     return null;
   }
 
-  const nextStock =
-    input.type === "IN" ? variant.stock + input.quantity : variant.stock - input.quantity;
+  return withTenant(ctx.tenantId, async (tx) => {
+    const variant = await tx.productVariant.findFirst({
+      where: { id: input.variantId, tenantId: ctx.tenantId! },
+    });
+    if (!variant) {
+      return null;
+    }
 
-  if (nextStock < 0) {
-    throw new Error("STOCK_NEGATIVE");
-  }
+    const nextStock =
+      input.type === "IN" ? variant.stock + input.quantity : variant.stock - input.quantity;
 
-  // TODO: Wrap in a transaction once movement/stock business rules are finalized.
-  await prisma.productVariant.update({ where: { id: variant.id }, data: { stock: nextStock } });
+    if (nextStock < 0) {
+      throw new Error("STOCK_NEGATIVE");
+    }
 
-  return movementDb.createMovement({
-    variant: { connect: { id: variant.id } },
-    type: input.type,
-    quantity: input.quantity,
-    note: input.note,
+    await tx.productVariant.update({ where: { id: variant.id }, data: { stock: nextStock } });
+
+    return movementDb.createMovement(tx, {
+      tenant: { connect: { id: ctx.tenantId! } },
+      variant: { connect: { id: variant.id } },
+      type: input.type,
+      quantity: input.quantity,
+      note: input.note,
+    });
   });
 }

@@ -1,13 +1,19 @@
 import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
-import { prisma } from "@/lib/db/prisma";
 import { buildSkuBase, limitSku } from "@/lib/services/sku";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import { getSessionContext } from "@/lib/auth/session";
+import { withTenant } from "@/lib/db/tenant";
 
-async function ensureSku(client: Prisma.TransactionClient, sku: string | undefined, productName: string) {
+async function ensureSku(
+  client: Prisma.TransactionClient,
+  tenantId: string,
+  sku: string | undefined,
+  productName: string
+) {
   const trimmed = sku?.trim();
   if (trimmed) {
-    const exists = await client.productVariant.findUnique({ where: { sku: trimmed } });
+    const exists = await client.productVariant.findFirst({ where: { tenantId, sku: trimmed } });
     if (!exists) {
       return trimmed;
     }
@@ -16,7 +22,7 @@ async function ensureSku(client: Prisma.TransactionClient, sku: string | undefin
   const base = buildSkuBase({ prefix: process.env.SKU_PREFIX ?? "STK", productName, attributes: [] });
   let seq = 1;
   let candidate = limitSku(`${base}-${String(seq).padStart(3, "0")}`);
-  while (await client.productVariant.findUnique({ where: { sku: candidate } })) {
+  while (await client.productVariant.findFirst({ where: { tenantId, sku: candidate } })) {
     seq += 1;
     candidate = limitSku(`${base}-${String(seq).padStart(3, "0")}`);
   }
@@ -41,6 +47,11 @@ function parseCsv(text: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+
   const body = await request.text();
   if (!body) {
     return fail({ code: "EMPTY_FILE", message: "Arquivo vazio" }, 400);
@@ -51,19 +62,20 @@ export async function POST(request: NextRequest) {
     return fail({ code: "INVALID_CSV", message: "CSV inválido" }, 400);
   }
 
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await withTenant(session.tenantId, async (tx) => {
     const results = [];
     for (const row of rows) {
       const categoryName = row.category || "Sem categoria";
       const category = await tx.category.upsert({
-        where: { name: categoryName },
+        where: { tenantId_name: { tenantId: session.tenantId, name: categoryName } },
         update: {},
-        create: { name: categoryName },
+        create: { tenantId: session.tenantId, name: categoryName },
       });
 
-      const sku = await ensureSku(tx, row.sku, row.name);
+      const sku = await ensureSku(tx, session.tenantId, row.sku, row.name);
       const product = await tx.product.create({
         data: {
+          tenantId: session.tenantId,
           name: row.name,
           categoryId: category.id,
           unitPrice: Number(row.unitPrice),
@@ -72,6 +84,7 @@ export async function POST(request: NextRequest) {
       });
       await tx.productVariant.create({
         data: {
+          tenantId: session.tenantId,
           productId: product.id,
           sku,
           attributes: [],

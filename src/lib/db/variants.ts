@@ -1,26 +1,29 @@
-import { prisma } from "@/lib/db/prisma";
+import type { DbClient } from "@/lib/db/tenant";
 import { Prisma } from "@prisma/client";
 
-export function listVariants(productId?: string) {
-  return prisma.productVariant.findMany({
-    where: productId ? { productId } : undefined,
+export function listVariants(client: DbClient, tenantId: string, productId?: string) {
+  return client.productVariant.findMany({
+    where: {
+      tenantId,
+      ...(productId ? { productId } : {}),
+    },
     orderBy: { createdAt: "desc" },
     include: { product: true },
   });
 }
 
-export function createVariant(data: Prisma.ProductVariantCreateInput) {
-  return prisma.productVariant.create({ data });
+export function createVariant(client: DbClient, data: Prisma.ProductVariantCreateInput) {
+  return client.productVariant.create({ data });
 }
 
-export function getVariantById(id: string) {
-  return prisma.productVariant.findUnique({ where: { id }, include: { product: true } });
+export function getVariantById(client: DbClient, tenantId: string, id: string) {
+  return client.productVariant.findFirst({ where: { id, tenantId }, include: { product: true } });
 }
 
-export function updateVariant(id: string, data: Prisma.ProductVariantUpdateInput) {
-  return prisma.productVariant.update({ where: { id }, data });
+export function updateVariant(client: DbClient, id: string, data: Prisma.ProductVariantUpdateInput) {
+  return client.productVariant.update({ where: { id }, data });
 }
 
-export function deleteVariant(id: string) {
-  return prisma.productVariant.delete({ where: { id } });
+export function deleteVariant(client: DbClient, id: string) {
+  return client.productVariant.delete({ where: { id } });
 }

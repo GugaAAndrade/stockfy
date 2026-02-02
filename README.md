@@ -37,6 +37,25 @@ Inicie o servidor:
 npm run dev
 ```
 
+## Stripe (assinaturas)
+
+Variaveis necessarias:
+
+```
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_GROWTH=price_...
+STRIPE_PRICE_SCALE=price_...
+APP_URL=http://localhost:3000
+## DEV
+BILLING_BYPASS=1
+NEXT_PUBLIC_BILLING_BYPASS=1
+```
+
+Webhook (local):
+- exemplo: `stripe listen --forward-to localhost:3000/api/billing/webhook`
+
 ## Estrutura
 
 - `src/app/(dashboard)` UI principal

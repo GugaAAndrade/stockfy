@@ -1,17 +1,24 @@
 import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { movementCreateSchema } from "@/lib/validators/stock-movement";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionContext } from "@/lib/auth/session";
 import * as notificationService from "@/lib/services/notifications";
 import * as movementService from "@/lib/services/stock-movements";
 
 export async function GET() {
-  const data = await movementService.listMovements({});
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+  const data = await movementService.listMovements({ tenantId: session?.tenantId });
   return ok(data);
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getSessionUser();
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   const body = await request.json().catch(() => null);
   const parsed = movementCreateSchema.safeParse(body);
 
@@ -27,12 +34,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const movement = await movementService.createMovement({}, parsed.data);
+    const movement = await movementService.createMovement({ tenantId: session?.tenantId }, parsed.data);
     if (!movement) {
       return fail({ code: "NOT_FOUND", message: "Produto não encontrado" }, 404);
     }
     await notificationService.createNotification(
-      { userId: user?.id },
+      { userId: session?.user.id, tenantId: session?.tenantId },
       "Movimentação registrada",
       movement.type === "IN" ? "Entrada de estoque registrada" : "Saída de estoque registrada"
     );

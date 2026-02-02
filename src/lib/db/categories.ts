@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/db/prisma";
+import type { DbClient } from "@/lib/db/tenant";
 
-export function listCategories() {
-  return prisma.category.findMany({ orderBy: { name: "asc" } });
+export function listCategories(client: DbClient, tenantId: string) {
+  return client.category.findMany({ where: { tenantId }, orderBy: { name: "asc" } });
 }
 
-export function createCategory(name: string) {
-  return prisma.category.create({ data: { name } });
+export function createCategory(client: DbClient, tenantId: string, name: string) {
+  return client.category.create({ data: { tenantId, name } });
 }

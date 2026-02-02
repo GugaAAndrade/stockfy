@@ -1,30 +1,33 @@
 import * as noticeDb from "@/lib/db/notifications";
 import type { ServiceContext } from "@/lib/services/products";
+import { withTenant } from "@/lib/db/tenant";
 
 export async function listNotifications(ctx: ServiceContext) {
-  if (!ctx.userId) {
+  if (!ctx.userId || !ctx.tenantId) {
     return [];
   }
-  return noticeDb.listNotifications(ctx.userId);
+  return withTenant(ctx.tenantId, (tx) => noticeDb.listNotifications(tx, ctx.tenantId!, ctx.userId!));
 }
 
 export async function countUnread(ctx: ServiceContext) {
-  if (!ctx.userId) {
+  if (!ctx.userId || !ctx.tenantId) {
     return 0;
   }
-  return noticeDb.countUnread(ctx.userId);
+  return withTenant(ctx.tenantId, (tx) => noticeDb.countUnread(tx, ctx.tenantId!, ctx.userId!));
 }
 
 export async function markAllRead(ctx: ServiceContext) {
-  if (!ctx.userId) {
+  if (!ctx.userId || !ctx.tenantId) {
     return null;
   }
-  return noticeDb.markAllRead(ctx.userId);
+  return withTenant(ctx.tenantId, (tx) => noticeDb.markAllRead(tx, ctx.tenantId!, ctx.userId!));
 }
 
 export async function createNotification(ctx: ServiceContext, title: string, message: string) {
-  if (!ctx.userId) {
+  if (!ctx.userId || !ctx.tenantId) {
     return null;
   }
-  return noticeDb.createNotification(ctx.userId, title, message);
+  return withTenant(ctx.tenantId, (tx) =>
+    noticeDb.createNotification(tx, ctx.tenantId!, ctx.userId!, title, message)
+  );
 }

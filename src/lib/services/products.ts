@@ -1,38 +1,45 @@
 import type { Product } from "@prisma/client";
-import { prisma } from "@/lib/db/prisma";
 import * as productDb from "@/lib/db/products";
 import type { ProductCreateInput, ProductUpdateInput } from "@/lib/validators/product";
 import { buildSkuBase, limitSku } from "@/lib/services/sku";
+import { withTenant } from "@/lib/db/tenant";
 
 export type ServiceContext = {
   userId?: string;
-  orgId?: string;
+  tenantId?: string;
 };
 
 export async function listProducts(ctx: ServiceContext, search?: string): Promise<Product[]> {
-  void ctx;
-  return productDb.listProducts(search);
+  if (!ctx.tenantId) {
+    return [];
+  }
+  return withTenant(ctx.tenantId, (tx) => productDb.listProducts(tx, ctx.tenantId!, search));
 }
 
 export async function getProductById(ctx: ServiceContext, id: string) {
-  void ctx;
-  return productDb.getProductById(id);
+  if (!ctx.tenantId) {
+    return null;
+  }
+  return withTenant(ctx.tenantId, (tx) => productDb.getProductById(tx, ctx.tenantId!, id));
 }
 
 export async function createProduct(ctx: ServiceContext, input: ProductCreateInput) {
-  void ctx;
+  if (!ctx.tenantId) {
+    return null;
+  }
   const skuPrefix = process.env.SKU_PREFIX ?? "STK";
   const base = buildSkuBase({ prefix: skuPrefix, productName: input.name, attributes: [] });
   let seq = 1;
   let candidate = limitSku(`${base}-${String(seq).padStart(3, "0")}`);
-  while (await prisma.productVariant.findUnique({ where: { sku: candidate } })) {
-    seq += 1;
-    candidate = limitSku(`${base}-${String(seq).padStart(3, "0")}`);
-  }
+  return withTenant(ctx.tenantId, async (tx) => {
+    while (await tx.productVariant.findFirst({ where: { tenantId: ctx.tenantId!, sku: candidate } })) {
+      seq += 1;
+      candidate = limitSku(`${base}-${String(seq).padStart(3, "0")}`);
+    }
 
-  return prisma.$transaction(async (tx) => {
     const product = await tx.product.create({
       data: {
+        tenantId: ctx.tenantId!,
         name: input.name,
         description: input.description,
         category: { connect: { id: input.categoryId } },
@@ -42,6 +49,7 @@ export async function createProduct(ctx: ServiceContext, input: ProductCreateInp
 
     await tx.productVariant.create({
       data: {
+        tenantId: ctx.tenantId!,
         productId: product.id,
         sku: candidate,
         attributes: [],
@@ -56,7 +64,9 @@ export async function createProduct(ctx: ServiceContext, input: ProductCreateInp
 }
 
 export async function updateProduct(ctx: ServiceContext, id: string, input: ProductUpdateInput) {
-  void ctx;
+  if (!ctx.tenantId) {
+    return null;
+  }
   const data = { ...input } as Record<string, unknown>;
   if (input.categoryId) {
     data.category = { connect: { id: input.categoryId } };
@@ -66,7 +76,7 @@ export async function updateProduct(ctx: ServiceContext, id: string, input: Prod
   delete (data as { stock?: number }).stock;
   delete (data as { minStock?: number }).minStock;
 
-  return prisma.$transaction(async (tx) => {
+  return withTenant(ctx.tenantId, async (tx) => {
     const product = await tx.product.update({
       where: { id },
       data: data as ProductUpdateInput,
@@ -95,6 +105,8 @@ export async function updateProduct(ctx: ServiceContext, id: string, input: Prod
 }
 
 export async function deleteProduct(ctx: ServiceContext, id: string) {
-  void ctx;
-  return prisma.product.delete({ where: { id } });
+  if (!ctx.tenantId) {
+    return null;
+  }
+  return withTenant(ctx.tenantId, (tx) => productDb.deleteProduct(tx, id));
 }

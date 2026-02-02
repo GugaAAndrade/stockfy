@@ -1,13 +1,17 @@
 import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { productCreateSchema } from "@/lib/validators/product";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionContext } from "@/lib/auth/session";
 import * as notificationService from "@/lib/services/notifications";
 import * as productService from "@/lib/services/products";
 
 export async function GET(request: NextRequest) {
   const search = request.nextUrl.searchParams.get("search") ?? undefined;
-  const data = await productService.listProducts({}, search);
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+  const data = await productService.listProducts({ tenantId: session?.tenantId }, search);
   const mapped = data.map((product) => {
     const totalStock = product.variants.reduce((sum, variant) => sum + variant.stock, 0);
     const totalMin = product.variants.reduce((sum, variant) => sum + variant.minStock, 0);
@@ -26,7 +30,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getSessionUser();
+  const session = await getSessionContext();
+  if (!session) {
+    return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
   const body = await request.json().catch(() => null);
   const parsed = productCreateSchema.safeParse(body);
 
@@ -41,9 +48,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const created = await productService.createProduct({}, parsed.data);
+  const created = await productService.createProduct({ tenantId: session?.tenantId }, parsed.data);
+  if (!created) {
+    return fail({ code: "NOT_FOUND", message: "Categoria inválida" }, 404);
+  }
   await notificationService.createNotification(
-    { userId: user?.id },
+    { userId: session?.user.id, tenantId: session?.tenantId },
     "Produto cadastrado",
     `Produto ${created.name} cadastrado com sucesso`
   );

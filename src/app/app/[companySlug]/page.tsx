@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { DashboardCards } from "@/components/dashboard/dashboard-cards";
 import { ProductTable, ProductRow } from "@/components/dashboard/product-table";
@@ -24,6 +24,9 @@ const fallbackActivities: ActivityItem[] = [];
 
 export default function DashboardPage() {
   const router = useRouter();
+  const params = useParams();
+  const companySlug = typeof params.companySlug === "string" ? params.companySlug : "";
+  const basePath = companySlug ? `/app/${companySlug}` : "/app";
   const [summary, setSummary] = useState({
     totalStock: 0,
     lowStock: 0,
@@ -90,7 +93,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <ProductTable products={products} onAddProduct={() => router.push("/produtos?new=1")} />
+          <ProductTable products={products} onAddProduct={() => router.push(`${basePath}/produtos?new=1`)} />
         </div>
         <div className="lg:col-span-1">
           <RecentActivity activities={activities} />

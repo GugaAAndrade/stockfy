@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Plus, ArrowUpRight, ArrowDownRight, FileText, Download, Upload } from "lucide-react";
 import { motion } from "motion/react";
+import { useParams } from "next/navigation";
 
 interface QuickActionProps {
   icon: React.ElementType;
@@ -36,6 +37,9 @@ function QuickActionCard({ icon: Icon, label, description, color, delay, href }:
 }
 
 export function QuickActions() {
+  const params = useParams();
+  const companySlug = typeof params.companySlug === "string" ? params.companySlug : "";
+  const basePath = companySlug ? `/app/${companySlug}` : "/app";
   const actions = [
     {
       icon: Plus,
@@ -43,7 +47,7 @@ export function QuickActions() {
       description: "Cadastrar novo item no estoque",
       color: "bg-primary",
       delay: 0.1,
-      href: "/produtos?new=1",
+      href: `${basePath}/produtos?new=1`,
     },
     {
       icon: ArrowUpRight,
@@ -51,7 +55,7 @@ export function QuickActions() {
       description: "Registrar recebimento de produtos",
       color: "bg-success",
       delay: 0.15,
-      href: "/movimentacoes?type=in",
+      href: `${basePath}/movimentacoes?type=in`,
     },
     {
       icon: ArrowDownRight,
@@ -59,7 +63,7 @@ export function QuickActions() {
       description: "Registrar venda ou retirada",
       color: "bg-warning",
       delay: 0.2,
-      href: "/movimentacoes?type=out",
+      href: `${basePath}/movimentacoes?type=out`,
     },
     {
       icon: FileText,
@@ -67,7 +71,7 @@ export function QuickActions() {
       description: "Criar relatório personalizado",
       color: "bg-chart-4",
       delay: 0.25,
-      href: "/relatorios",
+      href: `${basePath}/relatorios`,
     },
     {
       icon: Download,
@@ -75,7 +79,7 @@ export function QuickActions() {
       description: "Baixar planilha do estoque",
       color: "bg-chart-2",
       delay: 0.3,
-      href: "/produtos?export=1",
+      href: `${basePath}/produtos?export=1`,
     },
     {
       icon: Upload,
@@ -83,7 +87,7 @@ export function QuickActions() {
       description: "Carregar lista de produtos",
       color: "bg-chart-5",
       delay: 0.35,
-      href: "/produtos?import=1",
+      href: `${basePath}/produtos?import=1`,
     },
   ];
 

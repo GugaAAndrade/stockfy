@@ -1,28 +1,29 @@
-import { prisma } from "@/lib/db/prisma";
+import type { DbClient } from "@/lib/db/tenant";
 
-export function listNotifications(userId: string) {
-  return prisma.notification.findMany({
-    where: { userId },
+export function listNotifications(client: DbClient, tenantId: string, userId: string) {
+  return client.notification.findMany({
+    where: { tenantId, userId },
     orderBy: { createdAt: "desc" },
   });
 }
 
-export function countUnread(userId: string) {
-  return prisma.notification.count({
-    where: { userId, readAt: null },
+export function countUnread(client: DbClient, tenantId: string, userId: string) {
+  return client.notification.count({
+    where: { tenantId, userId, readAt: null },
   });
 }
 
-export function markAllRead(userId: string) {
-  return prisma.notification.updateMany({
-    where: { userId, readAt: null },
+export function markAllRead(client: DbClient, tenantId: string, userId: string) {
+  return client.notification.updateMany({
+    where: { tenantId, userId, readAt: null },
     data: { readAt: new Date() },
   });
 }
 
-export function createNotification(userId: string, title: string, message: string) {
-  return prisma.notification.create({
+export function createNotification(client: DbClient, tenantId: string, userId: string, title: string, message: string) {
+  return client.notification.create({
     data: {
+      tenantId,
       userId,
       title,
       message,
