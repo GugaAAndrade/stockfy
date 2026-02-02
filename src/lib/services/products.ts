@@ -1,0 +1,100 @@
+import type { Product } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
+import * as productDb from "@/lib/db/products";
+import type { ProductCreateInput, ProductUpdateInput } from "@/lib/validators/product";
+import { buildSkuBase, limitSku } from "@/lib/services/sku";
+
+export type ServiceContext = {
+  userId?: string;
+  orgId?: string;
+};
+
+export async function listProducts(ctx: ServiceContext, search?: string): Promise<Product[]> {
+  void ctx;
+  return productDb.listProducts(search);
+}
+
+export async function getProductById(ctx: ServiceContext, id: string) {
+  void ctx;
+  return productDb.getProductById(id);
+}
+
+export async function createProduct(ctx: ServiceContext, input: ProductCreateInput) {
+  void ctx;
+  const skuPrefix = process.env.SKU_PREFIX ?? "STK";
+  const base = buildSkuBase({ prefix: skuPrefix, productName: input.name, attributes: [] });
+  let seq = 1;
+  let candidate = limitSku(`${base}-${String(seq).padStart(3, "0")}`);
+  while (await prisma.productVariant.findUnique({ where: { sku: candidate } })) {
+    seq += 1;
+    candidate = limitSku(`${base}-${String(seq).padStart(3, "0")}`);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const product = await tx.product.create({
+      data: {
+        name: input.name,
+        description: input.description,
+        category: { connect: { id: input.categoryId } },
+        unitPrice: input.unitPrice,
+      },
+    });
+
+    await tx.productVariant.create({
+      data: {
+        productId: product.id,
+        sku: candidate,
+        attributes: [],
+        stock: input.stock,
+        minStock: input.minStock,
+        isDefault: true,
+      },
+    });
+
+    return product;
+  });
+}
+
+export async function updateProduct(ctx: ServiceContext, id: string, input: ProductUpdateInput) {
+  void ctx;
+  const data = { ...input } as Record<string, unknown>;
+  if (input.categoryId) {
+    data.category = { connect: { id: input.categoryId } };
+    delete data.categoryId;
+  }
+  const { stock, minStock } = input;
+  delete (data as { stock?: number }).stock;
+  delete (data as { minStock?: number }).minStock;
+
+  return prisma.$transaction(async (tx) => {
+    const product = await tx.product.update({
+      where: { id },
+      data: data as ProductUpdateInput,
+      include: { category: true, variants: true },
+    });
+
+    if (typeof stock === "number" || typeof minStock === "number") {
+      const defaultVariant =
+        product.variants.find((variant) => variant.isDefault) ?? product.variants[0];
+      if (defaultVariant) {
+        await tx.productVariant.update({
+          where: { id: defaultVariant.id },
+          data: {
+            ...(typeof stock === "number" ? { stock } : {}),
+            ...(typeof minStock === "number" ? { minStock } : {}),
+          },
+        });
+      }
+    }
+
+    return tx.product.findUnique({
+      where: { id: product.id },
+      include: { category: true, variants: true },
+    });
+  });
+}
+
+export async function deleteProduct(ctx: ServiceContext, id: string) {
+  void ctx;
+  return prisma.product.delete({ where: { id } });
+}
