@@ -39,7 +39,7 @@ export async function createProduct(ctx: ServiceContext, input: ProductCreateInp
 
     const product = await tx.product.create({
       data: {
-        tenantId: ctx.tenantId!,
+        tenant: { connect: { id: ctx.tenantId! } },
         name: input.name,
         description: input.description,
         category: { connect: { id: input.categoryId } },
@@ -49,8 +49,8 @@ export async function createProduct(ctx: ServiceContext, input: ProductCreateInp
 
     await tx.productVariant.create({
       data: {
-        tenantId: ctx.tenantId!,
-        productId: product.id,
+        tenant: { connect: { id: ctx.tenantId! } },
+        product: { connect: { id: product.id } },
         sku: candidate,
         attributes: [],
         stock: input.stock,

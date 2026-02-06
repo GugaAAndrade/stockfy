@@ -62,6 +62,7 @@ model ProductVariant {
 model StockMovement {
   id        String       @id @default(cuid())
   tenantId  String
+  userId    String
   variantId String
   type      MovementType
   quantity  Int
@@ -70,9 +71,11 @@ model StockMovement {
 
   variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, createdAt])
   @@index([tenantId, variantId])
+  @@index([tenantId, userId])
 }
 
 enum MovementType {
@@ -102,6 +105,8 @@ model User {
   sessions  Session[]
   notices   Notification[]
   memberships TenantUser[]
+  movements StockMovement[]
+  auditLogs AuditLog[]
 }
 
 model Session {
@@ -153,6 +158,7 @@ model Tenant {
   movements     StockMovement[]
   notifications Notification[]
   sessions      Session[]
+  auditLogs     AuditLog[]
 }
 
 model TenantUser {
@@ -161,6 +167,8 @@ model TenantUser {
   userId    String
   role      Role     @default(ADMIN)
   status    MembershipStatus @default(ACTIVE)
+  invitedAt DateTime?
+  inviteExpiresAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -169,4 +177,21 @@ model TenantUser {
 
   @@unique([tenantId, userId])
   @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, userId])
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, Package, TrendingUp, Settings } from "lucide-react";
+import { LayoutDashboard, Package, TrendingUp, Settings, ClipboardList } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -9,6 +9,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/app" },
   { icon: Package, label: "Produtos", href: "/app/produtos" },
   { icon: TrendingUp, label: "Movimentações", href: "/app/movimentacoes" },
+  { icon: ClipboardList, label: "Auditoria", href: "/app/auditoria" },
   { icon: Settings, label: "Configurações", href: "/app/configuracoes" },
 ];
 

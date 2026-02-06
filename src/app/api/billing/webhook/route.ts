@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       }
       break;
     }
+    case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
@@ -69,6 +70,23 @@ export async function POST(request: NextRequest) {
           priceId: subscription.items.data[0]?.price?.id ?? null,
           currentPeriodEnd: toDate(subscription.current_period_end),
         });
+      }
+      break;
+    }
+    case "invoice.paid": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId = invoice?.subscription;
+      if (subscriptionId && typeof subscriptionId === "string") {
+        const subscription = await stripe().subscriptions.retrieve(subscriptionId);
+        const tenantId = subscription?.metadata?.tenantId;
+        if (tenantId) {
+          await updateTenantSubscription(tenantId, {
+            stripeSubscriptionId: subscription.id,
+            subscriptionStatus: subscription.status,
+            priceId: subscription.items.data[0]?.price?.id ?? null,
+            currentPeriodEnd: toDate(subscription.current_period_end),
+          });
+        }
       }
       break;
     }

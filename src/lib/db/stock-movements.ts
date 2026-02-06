@@ -5,7 +5,7 @@ export function listMovements(client: DbClient, tenantId: string) {
   return client.stockMovement.findMany({
     where: { tenantId },
     orderBy: { createdAt: "desc" },
-    include: { variant: { include: { product: true } } },
+    include: { variant: { include: { product: true } }, user: true },
   });
 }
 

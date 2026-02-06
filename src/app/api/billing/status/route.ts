@@ -12,7 +12,7 @@ function resolvePlanLabel(priceId: string | null | undefined) {
 }
 
 export async function GET() {
-  const session = await getSessionContext();
+  const session = await getSessionContext({ allowInactive: true });
   if (!session) {
     return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
   }

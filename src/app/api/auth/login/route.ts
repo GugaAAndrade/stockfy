@@ -4,8 +4,17 @@ import { loginSchema } from "@/lib/validators/auth";
 import { authenticateUser } from "@/lib/services/auth";
 import { createSession, setTenantCookie } from "@/lib/auth/session";
 import { resolveTenantBySlug } from "@/lib/services/tenants";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { withTenant } from "@/lib/db/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const limit = rateLimit(`login:${ip}`, 10, 60_000);
+  if (!limit.allowed) {
+    return fail({ code: "RATE_LIMIT", message: "Muitas tentativas. Tente novamente em instantes." }, 429);
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) {
@@ -28,6 +37,15 @@ export async function POST(request: NextRequest) {
     const user = await authenticateUser(parsed.data, tenant.id);
     await setTenantCookie(tenant.id);
     await createSession(user.user.id, tenant.id);
+    await withTenant(tenant.id, (tx) =>
+      logAudit(tx, {
+        tenantId: tenant.id,
+        userId: user.user.id,
+        action: "auth.login",
+        entity: "user",
+        entityId: user.user.id,
+      })
+    );
     return ok({ id: user.user.id, name: user.user.name, email: user.user.email, role: user.role });
   } catch (error) {
     if (error instanceof Error && error.message === "NO_MEMBERSHIP") {

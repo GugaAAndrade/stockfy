@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { categoryCreateSchema } from "@/lib/validators/category";
 import { getSessionContext } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
+import { withTenant } from "@/lib/db/tenant";
+import { logAudit } from "@/lib/audit";
 import * as notificationService from "@/lib/services/notifications";
 import * as categoryService from "@/lib/services/categories";
 
@@ -9,6 +12,9 @@ export async function GET() {
   const session = await getSessionContext();
   if (!session) {
     return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+  if (!hasPermission(session.role, "categories:write")) {
+    return fail({ code: "FORBIDDEN", message: "Sem permissão" }, 403);
   }
   const data = await categoryService.listCategories({ tenantId: session?.tenantId });
   return ok(data);
@@ -30,6 +36,16 @@ export async function POST(request: NextRequest) {
   }
 
   const created = await categoryService.createCategory({ tenantId: session?.tenantId }, parsed.data);
+  await withTenant(session.tenantId, (tx) =>
+    logAudit(tx, {
+      tenantId: session.tenantId,
+      userId: session.user.id,
+      action: "category.created",
+      entity: "category",
+      entityId: created.id,
+      metadata: { name: created.name },
+    })
+  );
   await notificationService.createNotification(
     { userId: session?.user.id, tenantId: session?.tenantId },
     "Categoria criada",

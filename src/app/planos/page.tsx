@@ -3,36 +3,78 @@
 import Link from "next/link";
 import { motion } from "motion/react";
 import { Space_Grotesk, Archivo_Black } from "next/font/google";
+import { useEffect, useState } from "react";
 
 const display = Archivo_Black({ subsets: ["latin"], weight: "400" });
 const body = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
-const plans = [
+const defaultPlans = [
   {
     key: "starter",
     name: "Starter",
-    price: "R$ 49",
+    price: "R$ 79",
     cadence: "/mes",
-    items: ["ate 1.000 SKUs", "1 usuario admin", "exportacao CSV"],
+    items: [
+      "ate 2.000 SKUs",
+      "2 usuarios",
+      "importacao e exportacao CSV",
+      "alertas de estoque baixo",
+      "suporte por email",
+    ],
   },
   {
     key: "growth",
     name: "Growth",
-    price: "R$ 149",
+    price: "R$ 189",
     cadence: "/mes",
-    items: ["ate 10.000 SKUs", "5 usuarios", "alertas inteligentes"],
+    items: [
+      "ate 15.000 SKUs",
+      "8 usuarios",
+      "alertas inteligentes",
+      "relatorios avancados",
+      "suporte prioritario",
+    ],
     highlighted: true,
   },
   {
     key: "scale",
     name: "Scale",
-    price: "R$ 349",
-    cadence: "/mes",
-    items: ["SKUs ilimitados", "usuarios ilimitados", "suporte dedicado"],
+    price: "Sob consulta",
+    cadence: "",
+    items: [
+      "SKUs ilimitados",
+      "usuarios ilimitados",
+      "auditoria completa",
+      "portal dedicado",
+      "suporte VIP",
+    ],
   },
 ];
 
 export default function PlanosPage() {
+  const [plans, setPlans] = useState(defaultPlans);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const response = await fetch("/api/billing/plans");
+      const payload = await response.json().catch(() => null);
+      if (payload?.ok) {
+        const merged = defaultPlans.map((plan) => {
+          const remote = payload.data.find((item: { key: string }) => item.key === plan.key);
+          return {
+            ...plan,
+            price: remote?.price ?? plan.price,
+            cadence: remote?.cadence ?? plan.cadence,
+          };
+        });
+        setPlans(merged);
+      }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
   return (
     <div className={`${body.className} min-h-screen bg-[#f7f4ef] text-[#1f1f1f]`}>
       <div className="relative overflow-hidden">
@@ -41,10 +83,10 @@ export default function PlanosPage() {
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="text-center">
             <p className="text-xs uppercase tracking-[0.4em] text-[#0f172a]/70">planos</p>
             <h1 className={`${display.className} mt-4 text-4xl sm:text-5xl`}>
-              Escolha o plano para escalar seu estoque
+              Precos claros para cada fase do seu estoque
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-base text-[#0f172a]/70">
-              Fluxo simples: escolha um plano, crie a empresa e comece a operar em minutos.
+              Sem taxas escondidas. Cancele quando quiser. Evolua o plano conforme a operacao cresce.
             </p>
           </motion.div>
 
@@ -68,7 +110,11 @@ export default function PlanosPage() {
                 )}
                 <h2 className={`${display.className} text-2xl`}>{plan.name}</h2>
                 <p className="mt-4 text-3xl font-semibold">
-                  {plan.price} <span className="text-base font-medium">{plan.cadence}</span>
+                  {loading ? "..." : plan.price}{" "}
+                  <span className="text-base font-medium">{plan.cadence}</span>
+                </p>
+                <p className={`mt-1 text-xs ${plan.highlighted ? "text-white/70" : "text-[#0f172a]/70"}`}>
+                  Cobrado mensalmente. Sem fidelidade.
                 </p>
                 <ul className="mt-6 space-y-3 text-sm">
                   {plan.items.map((item) => (
@@ -97,6 +143,21 @@ export default function PlanosPage() {
             <Link className="font-semibold text-[#0f172a] hover:underline" href="/entrar">
               Entrar na empresa
             </Link>
+          </div>
+
+          <div className="mt-10 grid gap-4 rounded-3xl border border-[#e2e8f0] bg-white p-6 text-sm text-[#0f172a]/70 md:grid-cols-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#0f172a]/60">Garantia</p>
+              <p className="mt-2 text-sm">7 dias para testar. Se nao fizer sentido, cancele.</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#0f172a]/60">Migracao</p>
+              <p className="mt-2 text-sm">Importacao simples por CSV e suporte para onboarding.</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[#0f172a]/60">Seguranca</p>
+              <p className="mt-2 text-sm">Isolamento por tenant e auditoria completa.</p>
+            </div>
           </div>
         </div>
       </div>

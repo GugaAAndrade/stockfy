@@ -23,8 +23,8 @@ export function markAllRead(client: DbClient, tenantId: string, userId: string) 
 export function createNotification(client: DbClient, tenantId: string, userId: string, title: string, message: string) {
   return client.notification.create({
     data: {
-      tenantId,
-      userId,
+      tenant: { connect: { id: tenantId } },
+      user: { connect: { id: userId } },
       title,
       message,
     },

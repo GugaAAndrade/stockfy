@@ -8,15 +8,24 @@ const display = Sora({ subsets: ["latin"], weight: ["500", "600", "700"] });
 const mono = Space_Mono({ subsets: ["latin"], weight: ["400", "700"] });
 
 const highlights = [
-  { title: "Estoque vivo", body: "Movimentacoes e alertas em tempo real com historico claro." },
-  { title: "SKU inteligente", body: "Variacoes, padroes e consistencia para escalar o catalogo." },
-  { title: "Dados acionaveis", body: "Dashboards enxutos para decidir rapido sem planilhas." },
+  {
+    title: "Operacao sem ruído",
+    body: "Movimentacoes, alertas e auditoria em um painel simples para equipes pequenas ou grandes.",
+  },
+  {
+    title: "SKU sem bagunça",
+    body: "Variacoes padronizadas com consistencia de catalogo e historico completo por item.",
+  },
+  {
+    title: "Decisao rapida",
+    body: "Dashboards enxutos que mostram o que importa: giro, alertas e valor do estoque.",
+  },
 ];
 
 const steps = [
-  { title: "Escolha o plano", body: "Defina o tamanho da operacao e comece com flexibilidade." },
-  { title: "Crie a empresa", body: "Cadastre o time com um ID unico e seguro." },
-  { title: "Ative o estoque", body: "Cadastre produtos e opere com visibilidade total." },
+  { title: "Escolha o plano", body: "Precos claros e upgrade quando sua operacao crescer." },
+  { title: "Crie a empresa", body: "ID unico da empresa e acesso imediato ao painel." },
+  { title: "Ative o estoque", body: "Cadastre produtos e acompanhe entradas/saidas ao vivo." },
 ];
 
 export default function HomePage() {
@@ -62,11 +71,11 @@ export default function HomePage() {
               Saas de estoque
             </p>
             <h1 className="mt-6 text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
-              Estoque sob controle, sem planilhas e sem caos.
+              Controle total do estoque, do zero ao crescimento.
             </h1>
             <p className="mt-6 max-w-xl text-base text-white/70">
-              O Stockfy organiza produtos, variacoes e movimentacoes com um painel claro para
-              equipes que nao podem errar. Escale com seguranca e visibilidade real.
+              O Stockfy centraliza SKUs, movimentacoes e alertas em um painel direto. Menos planilhas,
+              mais previsibilidade para equipes que precisam operar sem erro.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
@@ -81,6 +90,11 @@ export default function HomePage() {
               >
                 Tenho empresa
               </Link>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-4 text-xs text-white/60">
+              <span className="rounded-full border border-white/15 px-3 py-1">Sem fidelidade</span>
+              <span className="rounded-full border border-white/15 px-3 py-1">Setup em minutos</span>
+              <span className="rounded-full border border-white/15 px-3 py-1">Suporte humano</span>
             </div>
           </motion.div>
 
@@ -198,7 +212,7 @@ export default function HomePage() {
               },
               {
                 q: "E se eu cancelar?",
-                a: "Seu acesso pode ser pausado ao fim do periodo vigente. Seus dados ficam seguros.",
+                a: "Voce pode cancelar a qualquer momento. Seus dados ficam seguros e exportaveis.",
               },
             ].map((item) => (
               <div key={item.q} className="rounded-3xl border border-white/10 bg-white/5 p-5">

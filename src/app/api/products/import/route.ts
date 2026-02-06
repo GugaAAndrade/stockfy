@@ -4,6 +4,8 @@ import { buildSkuBase, limitSku } from "@/lib/services/sku";
 import type { Prisma } from "@prisma/client";
 import { getSessionContext } from "@/lib/auth/session";
 import { withTenant } from "@/lib/db/tenant";
+import { hasPermission } from "@/lib/auth/permissions";
+import { logAudit } from "@/lib/audit";
 
 async function ensureSku(
   client: Prisma.TransactionClient,
@@ -51,6 +53,9 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
   }
+  if (!hasPermission(session.role, "products:write")) {
+    return fail({ code: "FORBIDDEN", message: "Sem permissão" }, 403);
+  }
 
   const body = await request.text();
   if (!body) {
@@ -69,13 +74,13 @@ export async function POST(request: NextRequest) {
       const category = await tx.category.upsert({
         where: { tenantId_name: { tenantId: session.tenantId, name: categoryName } },
         update: {},
-        create: { tenantId: session.tenantId, name: categoryName },
+        create: { name: categoryName, tenant: { connect: { id: session.tenantId } } },
       });
 
       const sku = await ensureSku(tx, session.tenantId, row.sku, row.name);
       const product = await tx.product.create({
         data: {
-          tenantId: session.tenantId,
+          tenant: { connect: { id: session.tenantId } },
           name: row.name,
           categoryId: category.id,
           unitPrice: Number(row.unitPrice),
@@ -84,8 +89,8 @@ export async function POST(request: NextRequest) {
       });
       await tx.productVariant.create({
         data: {
-          tenantId: session.tenantId,
-          productId: product.id,
+          tenant: { connect: { id: session.tenantId } },
+          product: { connect: { id: product.id } },
           sku,
           attributes: [],
           stock: Number(row.stock ?? 0),
@@ -97,6 +102,16 @@ export async function POST(request: NextRequest) {
     }
     return results;
   });
+
+  await withTenant(session.tenantId, (tx) =>
+    logAudit(tx, {
+      tenantId: session.tenantId,
+      userId: session.user.id,
+      action: "product.imported",
+      entity: "product",
+      metadata: { count: created.length },
+    })
+  );
 
   return ok({ count: created.length });
 }

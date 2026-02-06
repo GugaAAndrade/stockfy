@@ -4,6 +4,9 @@ import { getSessionContext } from "@/lib/auth/session";
 import { withTenant } from "@/lib/db/tenant";
 import { userCreateSchema } from "@/lib/validators/user";
 import bcrypt from "bcryptjs";
+import { createInviteToken } from "@/lib/auth/invite";
+import { logAudit } from "@/lib/audit";
+import { hasPermission } from "@/lib/auth/permissions";
 
 export async function GET() {
   const session = await getSessionContext();
@@ -26,6 +29,7 @@ export async function GET() {
     role: member.role,
     status: member.status,
     createdAt: member.createdAt,
+    inviteExpiresAt: member.inviteExpiresAt,
   }));
 
   return ok(data);
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
   }
-  if (session.role !== "ADMIN") {
+  if (!hasPermission(session.role, "users:manage")) {
     return fail({ code: "FORBIDDEN", message: "Acesso restrito ao administrador" }, 403);
   }
 
@@ -57,6 +61,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const origin = request.headers.get("origin") ?? process.env.APP_URL ?? "http://localhost:3000";
+    const ttlDays = Number(process.env.INVITE_TOKEN_TTL_DAYS ?? "7");
+    const inviteExpiresAt = invite ? new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000) : null;
+
     const result = await withTenant(session.tenantId, async (tx) => {
       const existingUser = await tx.user.findUnique({ where: { email: input.email } });
       if (!existingUser) {
@@ -68,13 +76,15 @@ export async function POST(request: NextRequest) {
         });
         const membership = await tx.tenantUser.create({
           data: {
-            tenantId: session.tenantId,
-            userId: createdUser.id,
+            tenant: { connect: { id: session.tenantId } },
+            user: { connect: { id: createdUser.id } },
             role: input.role,
             status: invite ? "INVITED" : "ACTIVE",
+            invitedAt: invite ? new Date() : null,
+            inviteExpiresAt,
           },
         });
-        return { user: createdUser, membership, tempPassword: invite ? tempPassword : null };
+        return { user: createdUser, membership, tempPassword: null };
       }
 
       const existingMembership = await tx.tenantUser.findFirst({
@@ -86,15 +96,33 @@ export async function POST(request: NextRequest) {
 
       const membership = await tx.tenantUser.create({
         data: {
-          tenantId: session.tenantId,
-          userId: existingUser.id,
+          tenant: { connect: { id: session.tenantId } },
+          user: { connect: { id: existingUser.id } },
           role: input.role,
           status: invite ? "INVITED" : "ACTIVE",
+          invitedAt: invite ? new Date() : null,
+          inviteExpiresAt,
         },
       });
 
       return { user: existingUser, membership, tempPassword: null };
     });
+
+    await withTenant(session.tenantId, (tx) =>
+      logAudit(tx, {
+        tenantId: session.tenantId,
+        userId: session.user.id,
+        action: "user.invited",
+        entity: "user",
+        entityId: result.user.id,
+        metadata: { email: result.user.email, role: result.membership.role },
+      })
+    );
+
+    const inviteUrl =
+      invite && inviteExpiresAt
+        ? `${origin}/convite?token=${createInviteToken(session.tenantId, result.user.id, inviteExpiresAt)}`
+        : null;
 
     return ok(
       {
@@ -103,7 +131,8 @@ export async function POST(request: NextRequest) {
         email: result.user.email,
         role: result.membership.role,
         status: result.membership.status,
-        tempPassword: result.tempPassword,
+        inviteUrl,
+        inviteExpiresAt,
       },
       201
     );

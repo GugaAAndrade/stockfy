@@ -53,6 +53,9 @@ export default function NotificationsPage() {
           >
             <p className="font-medium text-foreground">{notice.title}</p>
             <p className="text-sm text-muted-foreground mt-1">{notice.message}</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              {new Date(notice.createdAt).toLocaleString("pt-BR")}
+            </p>
           </div>
         ))}
       </div>

@@ -11,6 +11,7 @@ interface MovementRow {
   quantity: number;
   note?: string | null;
   createdAt: string;
+  user?: { id: string; name: string; email: string } | null;
   variant: { id: string; sku: string; attributes: Array<{ name: string; value: string }>; product: { id: string; name: string } };
 }
 
@@ -92,10 +93,15 @@ export default function MovementsPage() {
                   <p className="text-sm font-medium text-foreground">{movement.variant?.product?.name}</p>
                   <p className="text-xs text-muted-foreground">SKU: {movement.variant?.sku}</p>
                   <p className="text-xs text-muted-foreground">{movement.type === "IN" ? "Entrada" : "Saída"}</p>
+                  {movement.user?.name && (
+                    <p className="text-xs text-muted-foreground">Por: {movement.user.name}</p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-foreground">{movement.quantity} un</p>
-                  <p className="text-xs text-muted-foreground">{new Date(movement.createdAt).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(movement.createdAt).toLocaleString("pt-BR")}
+                  </p>
                 </div>
               </div>
             ))}

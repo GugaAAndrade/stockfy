@@ -15,9 +15,17 @@ type AccountInfo = {
 export default function SettingsPage() {
   const [account, setAccount] = useState<AccountInfo | null>(null);
   const [users, setUsers] = useState<
-    Array<{ id: string; name: string; email: string; role: string; status: string; createdAt: string }>
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      status: string;
+      createdAt: string;
+      inviteExpiresAt?: string | null;
+    }>
   >([]);
-  const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "OPERATOR" });
+  const [userForm, setUserForm] = useState({ name: "", email: "", role: "OPERATOR" });
   const [userError, setUserError] = useState("");
   const [userMessage, setUserMessage] = useState("");
   const [billing, setBilling] = useState<{
@@ -26,6 +34,7 @@ export default function SettingsPage() {
     currentPeriodEnd: string | null;
     billingBypass: boolean;
   } | null>(null);
+  const [billingMessage, setBillingMessage] = useState("");
 
   useEffect(() => {
     const loadAccount = async () => {
@@ -60,8 +69,22 @@ export default function SettingsPage() {
     loadUsers();
   }, []);
 
+
+  const statusLabels: Record<string, string> = {
+    active: "Ativa",
+    trialing: "Em teste",
+    past_due: "Pagamento pendente",
+    canceled: "Cancelada",
+    unpaid: "Pagamento falhou",
+    incomplete: "Pagamento pendente",
+    incomplete_expired: "Pagamento expirado",
+    paused: "Pausada",
+  };
+  const normalizedStatus = billing?.status?.toLowerCase();
   const planLabel = billing?.plan ?? (billing?.billingBypass ? "Plano de teste" : "Indefinido");
-  const statusLabel = billing?.billingBypass ? "Ativo (dev)" : billing?.status ?? "Indefinido";
+  const statusLabel = billing?.billingBypass
+    ? "Ativo (dev)"
+    : (normalizedStatus ? statusLabels[normalizedStatus] : null) ?? "Indefinido";
   const periodEndLabel = billing?.currentPeriodEnd
     ? new Date(billing.currentPeriodEnd).toLocaleDateString("pt-BR")
     : "—";
@@ -145,17 +168,41 @@ export default function SettingsPage() {
           <span className="text-muted-foreground">Renovação</span>
           <span className="text-foreground font-medium">{periodEndLabel}</span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          A gestao completa de planos sera exibida aqui quando o Stripe estiver configurado.
-        </p>
+        {billingMessage && <p className="text-xs text-destructive">{billingMessage}</p>}
+        {account?.role === "ADMIN" && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="h-10 rounded-xl bg-primary text-primary-foreground text-xs font-semibold px-4"
+              onClick={async () => {
+                setBillingMessage("");
+                const response = await fetch("/api/billing/portal", { method: "POST" });
+                const payload = await response.json().catch(() => null);
+                if (!payload?.ok) {
+                  setBillingMessage(payload?.error?.message ?? "Erro ao abrir o portal");
+                  return;
+                }
+                window.location.href = payload.data.url;
+              }}
+            >
+              Gerenciar assinatura
+            </button>
+            <Link
+              className="h-10 rounded-xl border border-border text-xs text-foreground px-4 inline-flex items-center justify-center hover:bg-muted"
+              href="/planos"
+            >
+              Ver planos
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-3">
         <h3 className="text-lg font-semibold text-foreground">Cargos disponíveis</h3>
         <p className="text-sm text-muted-foreground">
-          Admin: acesso total. Gerente: gestão de produtos e relatórios. Operador: operações de estoque.
+          Admin: acesso total. Gerente: gestão de produtos, categorias, variações e estoque. Operador: movimentações.
         </p>
-        <p className="text-sm text-muted-foreground">Gestão de usuários será adicionada na próxima etapa.</p>
+        <p className="text-sm text-muted-foreground">Gestão de usuários disponível para Admin.</p>
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
@@ -192,6 +239,9 @@ export default function SettingsPage() {
                   : user.status === "INACTIVE"
                     ? "Inativo"
                     : "Convite"}
+                {user.status === "INVITED" && user.inviteExpiresAt
+                  ? ` (expira em ${new Date(user.inviteExpiresAt).toLocaleDateString("pt-BR")})`
+                  : ""}
               </p>
               {account?.role === "ADMIN" && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -237,6 +287,32 @@ export default function SettingsPage() {
                   >
                     {user.status === "ACTIVE" ? "Desativar" : "Ativar"}
                   </button>
+                  {user.status === "INVITED" && (
+                    <button
+                      type="button"
+                      className="h-8 rounded-lg border border-border px-3 text-xs text-foreground hover:bg-muted"
+                      onClick={async () => {
+                        setUserMessage("");
+                        setUserError("");
+                        const response = await fetch(`/api/users/${user.id}/invite`, { method: "POST" });
+                        const payload = await response.json().catch(() => null);
+                        if (!payload?.ok) {
+                          setUserError(payload?.error?.message ?? "Erro ao reenviar convite");
+                          return;
+                        }
+                        setUserMessage(`Convite reenviado: ${payload.data.inviteUrl}`);
+                        setUsers((prev) =>
+                          prev.map((item) =>
+                            item.id === user.id
+                              ? { ...item, inviteExpiresAt: payload.data.inviteExpiresAt }
+                              : item
+                          )
+                        );
+                      }}
+                    >
+                      Reenviar convite
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={account?.id === user.id}
@@ -267,19 +343,19 @@ export default function SettingsPage() {
               const response = await fetch("/api/users", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...userForm, invite: true }),
+                body: JSON.stringify({ name: userForm.name, email: userForm.email, role: userForm.role, invite: true }),
               });
               const payload = await response.json().catch(() => null);
               if (!payload?.ok) {
                 setUserError(payload?.error?.message ?? "Erro ao criar usuário");
                 return;
               }
-              if (payload.data?.tempPassword) {
-                setUserMessage(`Convite criado. Senha temporária: ${payload.data.tempPassword}`);
+              if (payload.data?.inviteUrl) {
+                setUserMessage(`Convite criado: ${payload.data.inviteUrl}`);
               } else {
                 setUserMessage("Usuário criado com sucesso");
               }
-              setUserForm({ name: "", email: "", password: "", role: "OPERATOR" });
+              setUserForm({ name: "", email: "", role: "OPERATOR" });
               const refresh = await fetch("/api/users");
               const refreshPayload = await refresh.json().catch(() => null);
               if (refreshPayload?.ok) {
@@ -305,12 +381,6 @@ export default function SettingsPage() {
                 className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
                 required
               />
-            </div>
-            <div className="grid gap-2">
-              <label className="text-xs text-muted-foreground">Senha</label>
-              <div className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground">
-                Uma senha temporária será gerada automaticamente para o convite.
-              </div>
             </div>
             <div className="grid gap-2">
               <label className="text-xs text-muted-foreground">Cargo</label>
@@ -341,6 +411,7 @@ export default function SettingsPage() {
           </form>
         )}
       </div>
+
     </DashboardShell>
   );
 }

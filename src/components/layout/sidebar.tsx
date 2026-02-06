@@ -8,6 +8,7 @@ import {
   FileText,
   Users,
   BarChart3,
+  ClipboardList,
 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -27,6 +28,7 @@ const navItems: NavItem[] = [
   { icon: BarChart3, label: "Relatórios", href: "/app/relatorios" },
   { icon: Users, label: "Fornecedores", href: "/app/fornecedores" },
   { icon: FileText, label: "Documentos", href: "/app/documentos" },
+  { icon: ClipboardList, label: "Auditoria", href: "/app/auditoria" },
   { icon: Settings, label: "Configurações", href: "/app/configuracoes" },
 ];
 

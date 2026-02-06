@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut, Search, Bell, ChevronDown, Settings } from "lucide-react";
+import { LogOut, Search, Bell, ChevronDown, Settings, X } from "lucide-react";
 import { motion } from "motion/react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export function Header() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const companySlug = typeof params.companySlug === "string" ? params.companySlug : "";
   const basePath = companySlug ? `/app/${companySlug}` : "/app";
   const [search, setSearch] = useState("");
@@ -23,7 +24,7 @@ export function Header() {
     tenant?: { name: string; slug: string } | null;
   } | null>(null);
   const [notifications, setNotifications] = useState<
-    Array<{ id: string; title: string; message: string; readAt: string | null }>
+    Array<{ id: string; title: string; message: string; readAt: string | null; createdAt: string }>
   >([]);
 
   const loadUnread = async () => {
@@ -59,6 +60,11 @@ export function Header() {
     loadAccount();
   }, []);
 
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    setSearch(urlSearch);
+  }, [searchParams]);
+
   const initials = account?.name
     ? account.name
         .split(" ")
@@ -92,8 +98,21 @@ export function Header() {
               placeholder="Buscar produtos, fornecedores..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="w-full h-11 pl-10 pr-4 bg-secondary rounded-xl border border-transparent focus:border-primary focus:bg-background transition-all outline-none text-foreground placeholder:text-muted-foreground"
+              className="w-full h-11 pl-10 pr-10 bg-secondary rounded-xl border border-transparent focus:border-primary focus:bg-background transition-all outline-none text-foreground placeholder:text-muted-foreground"
             />
+            {search.trim() ? (
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                onClick={() => {
+                  setSearch("");
+                  router.push(`${basePath}/produtos`);
+                }}
+                aria-label="Limpar pesquisa"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </form>
           <div className="sm:hidden">
             <h2 className="text-lg font-semibold text-foreground">StockFy</h2>
@@ -151,6 +170,9 @@ export function Header() {
                     >
                       <p className="text-xs font-semibold text-foreground">{notice.title}</p>
                       <p className="text-xs text-muted-foreground mt-1">{notice.message}</p>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        {new Date(notice.createdAt).toLocaleString("pt-BR")}
+                      </p>
                     </div>
                   ))}
                 </div>

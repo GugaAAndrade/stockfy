@@ -25,8 +25,8 @@ export async function createSession(userId: string, tenantId: string) {
     tx.session.create({
       data: {
         token,
-        userId,
-        tenantId,
+        user: { connect: { id: userId } },
+        tenant: { connect: { id: tenantId } },
         expiresAt,
       },
     })
@@ -62,7 +62,9 @@ export async function destroySession() {
   cookieStore.set(tenantCookie, "", { path: "/", maxAge: 0 });
 }
 
-export async function getSessionContext() {
+const activeSubscriptionStatuses = new Set(["active", "trialing"]);
+
+export async function getSessionContext(options?: { allowInactive?: boolean }) {
   const cookieStore = await cookies();
   const token = cookieStore.get(sessionCookie)?.value;
   const tenantId = cookieStore.get(tenantCookie)?.value;
@@ -85,7 +87,14 @@ export async function getSessionContext() {
     return { session: sessionRecord, membership: membershipRecord, tenant: tenantRecord };
   });
 
-  if (!session || !membership || membership.status !== "ACTIVE") {
+  if (!session || !membership || membership.status !== "ACTIVE" || !tenant) {
+    return null;
+  }
+
+  const bypass = process.env.BILLING_BYPASS === "1";
+  const allowInactive = options?.allowInactive ?? false;
+  const status = tenant.subscriptionStatus ?? "unknown";
+  if (!allowInactive && !bypass && !activeSubscriptionStatuses.has(status)) {
     return null;
   }
 

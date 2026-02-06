@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/session";
 import { withTenant } from "@/lib/db/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   const session = await getSessionContext();
@@ -13,6 +14,15 @@ export async function GET() {
       where: { tenantId: session.tenantId },
       orderBy: { createdAt: "desc" },
       include: { category: true, variants: true },
+    })
+  );
+  await withTenant(session.tenantId, (tx) =>
+    logAudit(tx, {
+      tenantId: session.tenantId,
+      userId: session.user.id,
+      action: "product.exported",
+      entity: "product",
+      metadata: { count: products.length },
     })
   );
 

@@ -4,13 +4,16 @@ import { getSessionContext } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { stripe } from "@/lib/stripe";
 import { plans, type PlanKey } from "@/lib/billing/plans";
+import { hasPermission } from "@/lib/auth/permissions";
+import { logAudit } from "@/lib/audit";
+import { withTenant } from "@/lib/db/tenant";
 
 export async function POST(request: NextRequest) {
-  const session = await getSessionContext();
+  const session = await getSessionContext({ allowInactive: true });
   if (!session) {
     return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
   }
-  if (session.role !== "ADMIN") {
+  if (!hasPermission(session.role, "billing:manage")) {
     return fail({ code: "FORBIDDEN", message: "Acesso restrito ao administrador" }, 403);
   }
 
@@ -35,7 +38,17 @@ export async function POST(request: NextRequest) {
         currentPeriodEnd: null,
       },
     });
-    return ok({ url: "/app" });
+    await withTenant(tenant.id, (tx) =>
+      logAudit(tx, {
+        tenantId: tenant.id,
+        userId: session.user.id,
+        action: "billing.checkout_bypass",
+        entity: "tenant",
+        entityId: tenant.id,
+        metadata: { plan: planKey },
+      })
+    );
+    return ok({ url: `/app/${tenant.slug}` });
   }
 
   if (!plan.priceId) {
@@ -74,6 +87,17 @@ export async function POST(request: NextRequest) {
       plan: planKey,
     },
   });
+
+  await withTenant(tenant.id, (tx) =>
+    logAudit(tx, {
+      tenantId: tenant.id,
+      userId: session.user.id,
+      action: "billing.checkout_started",
+      entity: "tenant",
+      entityId: tenant.id,
+      metadata: { plan: planKey },
+    })
+  );
 
   return ok({ url: checkout.url });
 }

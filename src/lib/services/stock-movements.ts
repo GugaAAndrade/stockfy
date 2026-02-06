@@ -11,7 +11,7 @@ export async function listMovements(ctx: ServiceContext) {
 }
 
 export async function createMovement(ctx: ServiceContext, input: MovementCreateInput) {
-  if (!ctx.tenantId) {
+  if (!ctx.tenantId || !ctx.userId) {
     return null;
   }
 
@@ -34,6 +34,7 @@ export async function createMovement(ctx: ServiceContext, input: MovementCreateI
 
     return movementDb.createMovement(tx, {
       tenant: { connect: { id: ctx.tenantId! } },
+      user: { connect: { id: ctx.userId! } },
       variant: { connect: { id: variant.id } },
       type: input.type,
       quantity: input.quantity,

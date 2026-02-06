@@ -195,7 +195,7 @@ export async function getRecentActivity(ctx: ServiceContext) {
       where: { tenantId: ctx.tenantId },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { variant: { include: { product: true } } },
+      include: { variant: { include: { product: true } }, user: true },
     })
   );
 
@@ -205,8 +205,8 @@ export async function getRecentActivity(ctx: ServiceContext) {
       id: `${movement.id}-${index}`,
       type: movement.type === "IN" ? "entrada" : "saida",
       description: label,
-      user: "Sistema",
-      time: "agora",
+      user: movement.user?.name ?? "Sistema",
+      time: movement.createdAt.toISOString(),
       product: movement.variant?.product?.name ?? "Produto",
       quantity: movement.quantity,
     };

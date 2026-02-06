@@ -30,6 +30,14 @@ function getActivityIcon(type: ActivityItem["type"]) {
   }
 }
 
+function formatActivityTime(value: string) {
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleString("pt-BR");
+  }
+  return value;
+}
+
 export function RecentActivity({ activities }: RecentActivityProps) {
   return (
     <motion.div
@@ -62,7 +70,9 @@ export function RecentActivity({ activities }: RecentActivityProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <p className="font-medium text-foreground text-sm">{activity.description}</p>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">{activity.time}</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {formatActivityTime(activity.time)}
+                  </span>
                 </div>
                 {activity.product && (
                   <p className="text-sm text-muted-foreground truncate">

@@ -5,5 +5,10 @@ export function listCategories(client: DbClient, tenantId: string) {
 }
 
 export function createCategory(client: DbClient, tenantId: string, name: string) {
-  return client.category.create({ data: { tenantId, name } });
+  return client.category.create({
+    data: {
+      name,
+      tenant: { connect: { id: tenantId } },
+    },
+  });
 }

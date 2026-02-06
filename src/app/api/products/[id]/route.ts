@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/response";
 import { productUpdateSchema } from "@/lib/validators/product";
 import { getSessionContext } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
+import { withTenant } from "@/lib/db/tenant";
+import { logAudit } from "@/lib/audit";
 import * as notificationService from "@/lib/services/notifications";
 import * as productService from "@/lib/services/products";
 
@@ -10,6 +13,9 @@ export async function GET(_request: NextRequest, context: { params: { id: string
   const session = await getSessionContext();
   if (!session) {
     return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
+  }
+  if (!hasPermission(session.role, "products:write")) {
+    return fail({ code: "FORBIDDEN", message: "Sem permissão" }, 403);
   }
   const product = await productService.getProductById({ tenantId: session?.tenantId }, id);
   if (!product) {
@@ -53,6 +59,16 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   if (!updated) {
     return fail({ code: "NOT_FOUND", message: "Produto não encontrado" }, 404);
   }
+  await withTenant(session.tenantId, (tx) =>
+    logAudit(tx, {
+      tenantId: session.tenantId,
+      userId: session.user.id,
+      action: "product.updated",
+      entity: "product",
+      entityId: updated.id,
+      metadata: { name: updated.name },
+    })
+  );
   const totalStock = updated.variants?.reduce?.((sum, variant) => sum + variant.stock, 0) ?? 0;
   const totalMin = updated.variants?.reduce?.((sum, variant) => sum + variant.minStock, 0) ?? 0;
   const defaultVariant = updated.variants?.find?.((variant) => variant.isDefault) ?? updated.variants?.[0];
@@ -78,8 +94,21 @@ export async function DELETE(_request: NextRequest, context: { params: { id: str
   if (!session) {
     return fail({ code: "UNAUTHENTICATED", message: "Não autenticado" }, 401);
   }
+  if (!hasPermission(session.role, "products:delete")) {
+    return fail({ code: "FORBIDDEN", message: "Sem permissão" }, 403);
+  }
   try {
     const deleted = await productService.deleteProduct({ tenantId: session?.tenantId }, id);
+    await withTenant(session.tenantId, (tx) =>
+      logAudit(tx, {
+        tenantId: session.tenantId,
+        userId: session.user.id,
+        action: "product.deleted",
+        entity: "product",
+        entityId: deleted.id,
+        metadata: { name: deleted.name },
+      })
+    );
     await notificationService.createNotification(
       { userId: session?.user.id, tenantId: session?.tenantId },
       "Produto excluído",

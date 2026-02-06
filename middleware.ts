@@ -8,6 +8,8 @@ const publicPaths = [
   "/",
   "/planos",
   "/assinatura",
+  "/convite",
+  "/api/invites",
   "/api/auth",
   "/api/tenants",
   "/api/billing/webhook",

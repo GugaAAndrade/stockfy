@@ -37,8 +37,8 @@ export async function registerUser(input: RegisterInput) {
     await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenant.id}, true)`;
     await tx.tenantUser.create({
       data: {
-        tenantId: tenant.id,
-        userId: user.id,
+        tenant: { connect: { id: tenant.id } },
+        user: { connect: { id: user.id } },
         role: "ADMIN",
         status: "ACTIVE",
       },

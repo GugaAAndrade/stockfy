@@ -37,6 +37,11 @@ Inicie o servidor:
 npm run dev
 ```
 
+## Healthcheck
+
+- Endpoint: `/api/health`
+- Página: `/status`
+
 ## Stripe (assinaturas)
 
 Variaveis necessarias:
@@ -70,3 +75,27 @@ Webhook (local):
 
 - O tema claro/escuro é persistido em `localStorage`.
 - A modelagem está pronta para evoluir; alguns campos estão neutros por falta de definição do domínio.
+
+## Backup / Restore
+
+Use `DATABASE_URL` no ambiente.
+
+```bash
+./scripts/backup-db.sh
+./scripts/restore-db.sh ./backups/stockfy_backup_YYYYMMDD_HHMMSS.dump
+```
+
+## Testes
+
+Unitários:
+
+```bash
+npm test
+```
+
+E2E (Playwright):
+
+```bash
+NEXT_PUBLIC_BILLING_BYPASS=1 BILLING_BYPASS=1 npm run dev
+npm run test:e2e
+```
